@@ -31,8 +31,10 @@ function loadSkillsContext() {
 // do the multi-tool work (GitHub, Supabase, Vercel, browser). `continueSession: true`
 // resumes the most recent conversation in this directory, so the plan and everything
 // built from it stays in context across every stage and every later feature request.
+const PERMISSION_MODE = process.env.HERMES_PERMISSION_MODE || 'acceptEdits';
+
 function runClaudeCode(prompt, { continueSession = false } = {}) {
-  const args = ['-p', prompt, '--mcp-config', MCP_CONFIG, '--permission-mode', 'acceptEdits'];
+  const args = ['-p', prompt, '--mcp-config', MCP_CONFIG, '--permission-mode', PERMISSION_MODE];
   if (continueSession) args.push('--continue');
   return new Promise((resolve, reject) => {
     const child = spawn('claude', args, { cwd: ROOT, stdio: 'inherit', env: process.env });

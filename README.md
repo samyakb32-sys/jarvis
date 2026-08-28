@@ -36,19 +36,17 @@ way you would. This is also the riskiest piece — see **Browser control risk** 
 
 ## Setup
 
+Full walkthrough (tokens, the Chrome profile, troubleshooting): **[docs/SETUP.md](docs/SETUP.md)**.
+
+Short version:
+
 1. `npm install`
-2. `cp .env.example .env` and fill in `GITHUB_TOKEN`, `VERCEL_TOKEN`,
-   `SUPABASE_ACCESS_TOKEN`.
-3. Create a **dedicated** Chrome profile (not your daily-driver one) and log it into
-   GitHub/Vercel/Supabase dashboards, Stitch, and anything else you want Hermes to
-   reach. Point `CHROME_PROFILE_DIR` in `.env` at that profile's folder. Chrome
-   can't have two processes open on the same profile dir at once, so this must be a
-   profile you aren't also browsing in day-to-day.
-4. Make sure `claude`, `npx`, and `node` are on PATH (they already are, since you're
-   reading this from a Claude Code session).
-5. Drop any reference material — your past project write-ups, style notes, skills —
-   as `.md` files in `memory/skills/`. Hermes feeds these to Claude Code as context
-   on every build so new projects match your existing work.
+2. `cp .env.example .env` and fill in `GITHUB_TOKEN`, `VERCEL_TOKEN`, `SUPABASE_ACCESS_TOKEN`.
+3. Create a **dedicated** Chrome profile (not your daily-driver one), log it into
+   GitHub/Vercel/Supabase, Stitch, and whatever else Hermes should reach, and point
+   `CHROME_PROFILE_DIR` at it. Close that Chrome window before running Hermes.
+4. Drop reference material — past project write-ups, style notes — as `.md` files in
+   `memory/skills/`. Hermes feeds these to Claude Code as context on every build.
 
 ## Running it
 
