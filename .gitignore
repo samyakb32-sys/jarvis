@@ -1,0 +1,6 @@
+node_modules/
+.env
+*.log
+browser-profile/
+memory/projects/*.json
+!memory/projects/.gitkeep

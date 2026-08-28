@@ -1,0 +1,14 @@
+{
+  "name": "hermes",
+  "version": "0.1.0",
+  "description": "Hermes: orchestrator agent that drives Claude Code + GitHub + Vercel + Supabase + browser control through a build/deploy/fix loop.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "hermes": "node src/hermes.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "playwright": "^1.47.0"
+  }
+}

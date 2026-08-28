@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" }
+    },
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase", "--access-token", "${SUPABASE_ACCESS_TOKEN}"]
+    },
+    "vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com",
+      "headers": { "Authorization": "Bearer ${VERCEL_TOKEN}" }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y", "@playwright/mcp@latest",
+        "--browser", "chrome",
+        "--user-data-dir", "${CHROME_PROFILE_DIR}"
+      ]
+    }
+  }
+}
