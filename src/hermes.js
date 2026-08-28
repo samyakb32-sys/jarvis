@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// Hermes: drives the build loop sketched out on paper —
-// spec -> Claude Code builds backend -> push GitHub -> frontend -> connect DB
-// -> bug-check loop -> human approval -> link -> repeat for new features.
+// Hermes: drives the build loop —
+// plan (approved before any code) -> frontend -> backend -> deploy + self-judged
+// bug-fix pass -> link -> keep going for new features, all as one continuous
+// Claude Code session (via --continue) rather than restarting per stage.
 
 import 'dotenv/config';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,15 +27,15 @@ function loadSkillsContext() {
     .join('\n\n');
 }
 
-// Runs `claude -p <prompt>` non-interactively with Hermes's MCP servers attached,
-// letting Claude Code itself do the multi-tool work (GitHub, Supabase, Vercel, browser).
-function runClaudeCode(prompt, { cwd = ROOT } = {}) {
+// Runs `claude -p <prompt>` with Hermes's MCP servers attached, letting Claude Code
+// do the multi-tool work (GitHub, Supabase, Vercel, browser). `continueSession: true`
+// resumes the most recent conversation in this directory, so the plan and everything
+// built from it stays in context across every stage and every later feature request.
+function runClaudeCode(prompt, { continueSession = false } = {}) {
+  const args = ['-p', prompt, '--mcp-config', MCP_CONFIG, '--permission-mode', 'acceptEdits'];
+  if (continueSession) args.push('--continue');
   return new Promise((resolve, reject) => {
-    const child = spawn(
-      'claude',
-      ['-p', prompt, '--mcp-config', MCP_CONFIG, '--permission-mode', 'acceptEdits'],
-      { cwd, stdio: 'inherit', env: process.env }
-    );
+    const child = spawn('claude', args, { cwd: ROOT, stdio: 'inherit', env: process.env });
     child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`claude exited ${code}`))));
     child.on('error', reject);
   });
@@ -45,50 +46,80 @@ async function approve(question) {
   return /^y/i.test(answer.trim());
 }
 
-async function main() {
-  const topic = process.argv.slice(2).join(' ').trim();
-  if (!topic) {
-    console.error('Usage: npm run hermes -- "<what to build>"');
-    process.exit(1);
-  }
+async function planStage(topic, skillsContext) {
+  await runClaudeCode(
+    `Plan (do not write or edit any code, do not create repos or run any tool that changes ` +
+      `anything) a project: ${topic}.\n` +
+      (skillsContext ? `Reference my past work/skills for style and conventions:\n${skillsContext}\n` : '') +
+      `Report back: the tech stack, the pages/screens, the API surface, and the DB schema. ` +
+      `Just the plan — wait for approval before building anything.`
+  );
 
+  while (true) {
+    if (await approve('Plan above — proceed to build?')) return;
+    const feedback = await rl.question('[Hermes] What should change in the plan? ');
+    if (!feedback.trim()) continue;
+    await runClaudeCode(`Revise the plan: ${feedback}. Still no code yet — just report the updated plan.`, {
+      continueSession: true,
+    });
+  }
+}
+
+async function buildRound(topic) {
+  // Frontend first, then backend, then deploy — per the approved plan already in context.
+  await runClaudeCode(
+    `Now build the frontend for this project (${topic}), following the plan already agreed. ` +
+      `If it helps, use the playwright MCP tools to open stitch.withgoogle.com (already logged ` +
+      `in) and generate a design there, then export/translate it into real code — otherwise ` +
+      `build it directly. Make it look polished.`,
+    { continueSession: true }
+  );
+
+  await runClaudeCode(
+    `Now build the backend for this project, wired to the frontend just built. Create a new ` +
+      `GitHub repo for it and push everything so far. Provision any needed Supabase tables via ` +
+      `the supabase MCP tools. Report the repo URL when done.`,
+    { continueSession: true }
+  );
+
+  await runClaudeCode(
+    `Deploy this project to Vercel via the vercel MCP tools and connect it to the Supabase DB. ` +
+      `Then load the live site with the playwright MCP tools, look for bugs, and fix what you ` +
+      `find. Use your own judgment for when it's solid enough to stop rechecking — you don't ` +
+      `need it perfect, just working. Report the final live URL, and list anything you noticed ` +
+      `but couldn't fix.`,
+    { continueSession: true }
+  );
+}
+
+async function main() {
   mkdirSync(PROJECTS_DIR, { recursive: true });
   const skillsContext = loadSkillsContext();
 
-  console.log(`\n[Hermes] Building: ${topic}\n`);
+  let topic = process.argv.slice(2).join(' ').trim();
+  if (!topic) topic = await rl.question('[Hermes] What do you want to build? ');
+  if (!topic.trim()) {
+    console.error('Nothing to build.');
+    rl.close();
+    return;
+  }
 
-  // 1. Backend + repo, using whatever's in memory/skills as style/reference context.
-  await runClaudeCode(
-    `Build the backend for this project: ${topic}.\n` +
-      (skillsContext ? `Reference my past work/skills for style and conventions:\n${skillsContext}\n` : '') +
-      `Create a new GitHub repo for it and push the initial commit. ` +
-      `Provision any needed Supabase tables via the supabase MCP tools. ` +
-      `Report the repo URL when done.`
-  );
+  console.log(`\n[Hermes] Planning: ${topic}\n`);
+  await planStage(topic, skillsContext);
+  await buildRound(topic);
 
-  if (!(await approve('Backend + repo created. Continue to frontend?'))) return;
+  // Stay in the same conversation for follow-up features instead of restarting the script.
+  while (true) {
+    const next = await rl.question('\n[Hermes] Anything to add or change? (blank to stop) ');
+    if (!next.trim()) break;
+    await runClaudeCode(
+      `Continuing the same project: ${next}. Make the change, commit, push, redeploy if needed, ` +
+        `and re-check the live site the same way as before.`,
+      { continueSession: true }
+    );
+  }
 
-  // 2. Frontend. Stitch has no API, but Hermes has real browser control (playwright MCP,
-  // driven from a Chrome profile that's already logged into Stitch/YouTube/LinkedIn/etc),
-  // so Claude Code can open Stitch itself, generate a design, export it, and wire it up —
-  // the same way it can pull reference from any other logged-in site when useful.
-  await runClaudeCode(
-    `Build the frontend for this project (${topic}). If it helps, use the playwright MCP ` +
-      `tools to open stitch.withgoogle.com (already logged in) and generate a design there, ` +
-      `then export/translate it into real code. Otherwise build it directly. Make it look ` +
-      `polished, wire it to the backend already committed in this repo. Commit and push.`
-  );
-
-  if (!(await approve('Frontend wired up. Deploy to Vercel and run the bug-check loop?'))) return;
-
-  // 3. Deploy + self-check loop.
-  await runClaudeCode(
-    `Deploy this project to Vercel via the vercel MCP tools, connect it to the Supabase DB, ` +
-      `then check the live site for errors (use the playwright MCP tools to actually load it), ` +
-      `fix any bugs found, and re-check until clean. Report the final live URL.`
-  );
-
-  console.log('\n[Hermes] Done for this round. Re-run with a new instruction to add features.');
+  console.log('\n[Hermes] Done.');
   rl.close();
 }
 

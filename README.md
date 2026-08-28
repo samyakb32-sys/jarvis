@@ -4,21 +4,29 @@ Hermes is an orchestrator agent that drives the build loop from the original ske
 
 ```
 topic ("build a site about X")
-  -> Claude Code builds the backend, creates a GitHub repo, pushes it
+  -> plan only, no code — tech stack, pages, API surface, DB schema
+  -> you approve the plan (or send feedback and it revises, on repeat)
   -> Claude Code builds the frontend (optionally via Stitch, opened through
-     Hermes's own browser control) and wires it to the backend
+     Hermes's own browser control) following the approved plan
+  -> Claude Code builds the backend, creates a GitHub repo, pushes it
   -> deploy to Vercel, connect the Supabase DB
-  -> load the live site with browser control, find bugs, fix them, recheck
-  -> pause for your approval
+  -> load the live site with browser control, find bugs, fix them —
+     Claude Code judges for itself when it's solid enough to stop, and
+     reports anything it couldn't fix
   -> hand you the live link
-  -> repeat for each new feature you ask for
+  -> stays in the same conversation: keep asking for changes/new features
+     without restarting the script, until you say you're done
 ```
 
 Hermes itself doesn't reimplement GitHub/Supabase/Vercel clients — it shells out to
 the `claude` CLI you already run, with an MCP config (`mcp/hermes.mcp.json`) attached
-so Claude Code can call those services directly. Hermes's own job is: hold project
-memory across runs, assemble the right prompt per stage, and gate each stage on your
-approval.
+so Claude Code can call those services directly. Every stage after the plan runs with
+`claude --continue`, so the whole build — plan through however many feature requests
+you add afterward — is one ongoing Claude Code conversation, not a fresh session per
+stage. Hermes's own job is: hold project memory across runs, assemble the right
+prompt per stage, and gate the plan (and only the plan) on your explicit approval —
+everything after that runs unattended unless you interject at the "anything else?"
+prompt.
 
 **Browser control is the universal connector.** Rather than wiring a bespoke
 integration per site (Stitch, YouTube, LinkedIn, WhatsApp, ChatGPT, ...), Hermes
