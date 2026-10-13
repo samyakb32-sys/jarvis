@@ -1,0 +1,23 @@
+{
+  "name": "jarvis-island",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "cargo build --release -p jarvis-hook && npm run build:ui",
+    "build:ui": "tsc --noEmit && vite build",
+    "test": "node --test \"tests/*.test.mjs\"",
+    "tauri": "tauri",
+    "icons": "node scripts/make-icon.mjs app-icon.png && tauri icon app-icon.png"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.12.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.6"
+  }
+}

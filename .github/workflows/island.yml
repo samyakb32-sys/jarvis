@@ -1,0 +1,78 @@
+name: Island
+
+on:
+  push:
+    paths: ["island/**", "src/**", "tests/**", "package.json", "package-lock.json", ".github/workflows/island.yml"]
+  pull_request:
+    paths: ["island/**", "src/**", "tests/**", "package.json", "package-lock.json", ".github/workflows/island.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux:
+    name: Logic tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: island
+      - name: Hermes island client
+        run: npm ci && npm test
+      - name: Island UI (types, build, unit tests)
+        working-directory: island
+        run: npm ci && npm test && npm run build:ui
+      - name: Protocol and hook relay (unit + end-to-end over a Unix socket)
+        working-directory: island
+        run: cargo test -p jarvis-island-protocol --features server && cargo test -p jarvis-hook
+
+  windows:
+    name: Build, test and package (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: island
+      - name: Hermes island client over a named pipe
+        run: npm ci && npm test
+      - name: Install island dependencies
+        working-directory: island
+        run: npm ci
+      - name: Protocol and hook relay (unit + end-to-end over a named pipe)
+        working-directory: island
+        run: cargo test -p jarvis-island-protocol --features server && cargo test -p jarvis-hook
+      - name: Build the app and installer
+        working-directory: island
+        run: npm run tauri build
+      - name: Smoke test the built app
+        working-directory: island
+        shell: pwsh
+        run: ./scripts/smoke.ps1 -Out smoke
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-island-installer
+          path: island/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screenshots
+          path: island/smoke/*.png
+          if-no-files-found: ignore

@@ -1,0 +1,16 @@
+[package]
+name = "jarvis-island"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Jarvis Island: an island at the top of the screen for agent approvals and Hermes"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+jarvis-island-protocol = { path = "../protocol", features = ["server"] }
+tauri = { version = "~2.12.0", features = ["tray-icon"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+getrandom = "0.3"

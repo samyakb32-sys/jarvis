@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { islandAskPlan, islandEvent } from './island.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -43,12 +44,37 @@ function runClaudeCode(prompt, { continueSession = false } = {}) {
   });
 }
 
-async function approve(question) {
-  const answer = await rl.question(`\n[Hermes] ${question} (y/n) `);
-  return /^y/i.test(answer.trim());
+// Ask on Jarvis Island and in the terminal at once; the first answer wins and
+// the other one is withdrawn. Without the island running, this is just the
+// terminal prompt. Resolves with { decision: 'approve' } or { decision: 'revise', feedback }.
+async function reviewPlan(topic, round) {
+  const islandAbort = new AbortController();
+  const terminalAbort = new AbortController();
+
+  const fromTerminal = (async () => {
+    try {
+      const ok = await rl.question('\n[Hermes] Plan above — proceed to build? (y/n) ', { signal: terminalAbort.signal });
+      if (/^y/i.test(ok.trim())) return { decision: 'approve' };
+      const feedback = await rl.question('[Hermes] What should change in the plan? ', { signal: terminalAbort.signal });
+      return { decision: 'revise', feedback: feedback.trim() };
+    } catch {
+      return null; // withdrawn: the island answered first
+    }
+  })();
+  fromTerminal.then((r) => r && islandAbort.abort());
+
+  const fromIsland = islandAskPlan({ project: topic, round }, { signal: islandAbort.signal }).then((r) => {
+    if (!r) return fromTerminal; // island absent, declined or withdrawn: the terminal decides
+    terminalAbort.abort();
+    console.log(`\n[Hermes] ${r.decision === 'approve' ? 'Plan approved' : 'Changes requested'} on Jarvis Island.`);
+    return r;
+  });
+
+  return Promise.race([fromIsland, fromTerminal.then((r) => r ?? fromIsland)]);
 }
 
 async function planStage(topic, skillsContext) {
+  await islandEvent('stage', { project: topic, stage: 'plan', status: 'running' });
   await runClaudeCode(
     `Plan (do not write or edit any code, do not create repos or run any tool that changes ` +
       `anything) a project: ${topic}.\n` +
@@ -57,41 +83,57 @@ async function planStage(topic, skillsContext) {
       `Just the plan — wait for approval before building anything.`
   );
 
-  while (true) {
-    if (await approve('Plan above — proceed to build?')) return;
-    const feedback = await rl.question('[Hermes] What should change in the plan? ');
-    if (!feedback.trim()) continue;
-    await runClaudeCode(`Revise the plan: ${feedback}. Still no code yet — just report the updated plan.`, {
+  for (let round = 1; ; ) {
+    const answer = await reviewPlan(topic, round);
+    if (answer.decision === 'approve') {
+      await islandEvent('stage', { project: topic, stage: 'plan', status: 'done' });
+      return;
+    }
+    if (!answer.feedback) continue;
+    round += 1;
+    await runClaudeCode(`Revise the plan: ${answer.feedback}. Still no code yet — just report the updated plan.`, {
       continueSession: true,
     });
   }
 }
 
+// Report a build stage to the island as running, then done or failed.
+async function stage(topic, name, run) {
+  await islandEvent('stage', { project: topic, stage: name, status: 'running' });
+  try {
+    await run();
+  } catch (err) {
+    await islandEvent('stage', { project: topic, stage: name, status: 'failed' });
+    throw err;
+  }
+  await islandEvent('stage', { project: topic, stage: name, status: 'done' });
+}
+
 async function buildRound(topic) {
   // Frontend first, then backend, then deploy — per the approved plan already in context.
-  await runClaudeCode(
+  await stage(topic, 'frontend', () => runClaudeCode(
     `Now build the frontend for this project (${topic}), following the plan already agreed. ` +
       `If it helps, use the playwright MCP tools to open stitch.withgoogle.com (already logged ` +
       `in) and generate a design there, then export/translate it into real code — otherwise ` +
       `build it directly. Make it look polished.`,
     { continueSession: true }
-  );
+  ));
 
-  await runClaudeCode(
+  await stage(topic, 'backend', () => runClaudeCode(
     `Now build the backend for this project, wired to the frontend just built. Create a new ` +
       `GitHub repo for it and push everything so far. Provision any needed Supabase tables via ` +
       `the supabase MCP tools. Report the repo URL when done.`,
     { continueSession: true }
-  );
+  ));
 
-  await runClaudeCode(
+  await stage(topic, 'deploy', () => runClaudeCode(
     `Deploy this project to Vercel via the vercel MCP tools and connect it to the Supabase DB. ` +
       `Then load the live site with the playwright MCP tools, look for bugs, and fix what you ` +
       `find. Use your own judgment for when it's solid enough to stop rechecking — you don't ` +
       `need it perfect, just working. Report the final live URL, and list anything you noticed ` +
       `but couldn't fix.`,
     { continueSession: true }
-  );
+  ));
 }
 
 async function main() {
@@ -107,8 +149,10 @@ async function main() {
   }
 
   console.log(`\n[Hermes] Planning: ${topic}\n`);
+  await islandEvent('start', { project: topic });
   await planStage(topic, skillsContext);
   await buildRound(topic);
+  await islandEvent('done', { project: topic });
 
   // Stay in the same conversation for follow-up features instead of restarting the script.
   while (true) {
