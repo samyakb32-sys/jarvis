@@ -6,7 +6,7 @@
 #    Claude Code's "allow" JSON — through the real named pipe, the real webview
 #    rendering the card, and the real ack/decision path.
 # 3. A screenshot is taken while the card is on screen.
-param([string]$Out = "smoke")
+param([string]$ShotDir = "smoke")
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -14,7 +14,7 @@ $app = Join-Path $root "target\release\jarvis-island.exe"
 $hook = Join-Path $root "target\release\jarvis-hook.exe"
 foreach ($f in @($app, $hook)) { if (-not (Test-Path $f)) { throw "missing $f (run tauri build first)" } }
 
-New-Item -ItemType Directory -Force $Out | Out-Null
+New-Item -ItemType Directory -Force $ShotDir | Out-Null
 $tmp = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { $env:TEMP }
 $env:JARVIS_ISLAND_DIR = Join-Path $tmp "jarvis-island-smoke"
 $env:JARVIS_ISLAND_PIPE = "\\.\pipe\jarvis-island-smoke-$PID"
@@ -82,7 +82,7 @@ try {
     Start-Sleep -Milliseconds 200
   }
   Start-Sleep -Seconds 3   # let the webview finish loading and subscribe to events
-  Save-Screen (Join-Path $Out "1-idle.png")
+  Save-Screen (Join-Path $ShotDir "1-idle.png")
 
   # A fire-and-forget event first: it must not wait.
   $sw = [System.Diagnostics.Stopwatch]::StartNew()
@@ -94,7 +94,7 @@ try {
   # The permission request: the self-test page answers "allow" after 1.5 s.
   $p = Start-Hook "PermissionRequest" $permission
   Start-Sleep -Milliseconds 900
-  Save-Screen (Join-Path $Out "2-permission-card.png")
+  Save-Screen (Join-Path $ShotDir "2-permission-card.png")
   $out = Finish-Hook $p 20000
   Write-Host "hook output: $out"
   $reply = $out | ConvertFrom-Json
@@ -102,7 +102,7 @@ try {
   if ($reply.hookSpecificOutput.decision.behavior -ne "allow") { throw "expected allow, got: $out" }
   Write-Host "ok: island answered allow"
   Start-Sleep -Milliseconds 800
-  Save-Screen (Join-Path $Out "3-after.png")
+  Save-Screen (Join-Path $ShotDir "3-after.png")
 }
 finally {
   if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }

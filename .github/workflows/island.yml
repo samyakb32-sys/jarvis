@@ -62,7 +62,7 @@ jobs:
       - name: Smoke test the built app
         working-directory: island
         shell: pwsh
-        run: ./scripts/smoke.ps1 -Out smoke
+        run: ./scripts/smoke.ps1 -ShotDir smoke
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
