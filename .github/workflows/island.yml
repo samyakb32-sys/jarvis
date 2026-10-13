@@ -1,8 +1,8 @@
 name: Island
 
+# Pull requests only (plus manual runs): a push to a branch with an open PR
+# would otherwise run every job twice.
 on:
-  push:
-    paths: ["island/**", "src/**", "tests/**", "package.json", "package-lock.json", ".github/workflows/island.yml"]
   pull_request:
     paths: ["island/**", "src/**", "tests/**", "package.json", "package-lock.json", ".github/workflows/island.yml"]
   workflow_dispatch:

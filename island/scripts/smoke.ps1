@@ -57,6 +57,12 @@ $permission = @{
   tool_name = "Bash"; tool_input = @{ command = "npm run build"; description = "Build the app" }
 } | ConvertTo-Json -Compress
 
+# A freshly built exe is scanned by Windows Defender on its first start, which is
+# not the hook's own latency: start it once, unmeasured, before timing anything.
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+$null = Finish-Hook (Start-Hook "PermissionRequest" $permission) 15000
+Write-Host "warm-up (first start, includes antivirus scan): $($sw.ElapsedMilliseconds) ms"
+
 # 1. App closed: no token yet.
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 $out = Finish-Hook (Start-Hook "PermissionRequest" $permission) 5000
