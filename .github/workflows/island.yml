@@ -55,7 +55,7 @@ jobs:
         run: npm ci
       - name: Protocol and hook relay (unit + end-to-end over a named pipe)
         working-directory: island
-        run: cargo test -p jarvis-island-protocol --features server && cargo test -p jarvis-hook && cargo test -p jarvis-island
+        run: cargo test -p jarvis-island-protocol --features server && cargo test -p jarvis-hook && cargo build --release -p jarvis-hook && cargo test -p jarvis-island
       - name: Build the app and installer
         working-directory: island
         run: npm run tauri build
