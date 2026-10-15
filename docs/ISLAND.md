@@ -9,6 +9,37 @@ deploy) while they run.
 It is a clean-room design inspired by [Lintel](https://lintel.thisissbk.com/)
 (see [the research notes](research/lintel-reverse-engineering.md)); no Lintel code is used.
 
+## The look
+
+A near-black island with a soft periwinkle accent and Geist type, in the spirit of
+Lintel. The mascot is a small robot head from the MIT-licensed
+[robot-heads](https://github.com/fayazara/robot-heads) library, with an LED face
+that shows what is going on: **listening** while a card waits for you, **working**
+while Claude Code works, **thinking** while a Hermes stage runs, **happy** after
+an approval or a finished turn, **error** after a denial or failure, and
+**sleeping** after ten idle minutes.
+
+![A permission card](img/ui-3-docked-permission.png)
+![Hermes stages and Claude Code sessions](img/ui-6-docked-home.png)
+
+**Two places to live.** By default it hangs from the top edge of the screen. Drag
+it down and it becomes a floating ball you can park anywhere; click the ball to
+open the panel next to it. Drop the ball near the top edge, or choose
+*Put the island back at the top* from the tray menu, to dock it again. It
+remembers where you left it.
+
+![The floating ball](img/ui-9-ball-peek.png)
+
+**Light on a slow PC.** The robot is *Lite* by default: its frames are recorded
+ahead of time and played as a sprite, so the page runs no script per frame. Measured
+in headless Chromium without a GPU (a worst case) over 10 s: about 0.1 % of one
+core for an idle page, 0.6 % with a still robot, **2 % in Lite**, and 15 % in
+*Live 3D* (the real renderer, capped at 20 fps, eyes follow your pointer). Switch
+between *Lite*, *Live 3D* and *Off* in Settings. Hidden, nothing runs at all.
+
+**Sounds** (a rising chime for a new card, a ping when something finishes, a low
+tone on a denial) are off until you turn them on in Settings.
+
 ## Install
 
 1. Open the repository's **Actions** tab → **Island** workflow → the latest green
@@ -22,7 +53,7 @@ It is a clean-room design inspired by [Lintel](https://lintel.thisissbk.com/)
 
 ## Connect Claude Code
 
-1. Point at the island, open it, and click **Hooks** (or tray → *Claude Code hooks…*).
+1. Point at the island, open it, and click **Settings** (or tray → *Settings…*) → *Claude Code hooks*.
 2. Click **Install…**. The island shows exactly what it will change in
    `%USERPROFILE%\.claude\settings.json`, as a diff. Nothing is written yet.
 3. Click **Write changes**. The previous file is backed up next to it
@@ -82,7 +113,8 @@ Hermes (src/island.js) ──────────── same pipe, same prot
   and declines a request unless the island confirms the card is on screen within 800 ms.
 - `island/src-tauri` is the Tauri 2 app. It owns the topmost, non-focusable window
   that lets clicks through everywhere except over the island.
-- `island/src` is the page (plain TypeScript): hidden → peek → open, and the cards.
+- `island/src` is the page (plain TypeScript): hidden → peek → open, the cards, the robot (`mascot/`) and the placement rules (`place.ts`).
+- `island/src/vendor/robot-heads` is the robot renderer (MIT, Fayaz Ahmed), copied unchanged; `island/scripts/bake-robot.mjs` records the Lite sprites from it (`public/robot/`), and `island/scripts/preview.mjs` renders screenshots and measures CPU.
 
 Tests: `cargo test -p jarvis-island-protocol --features server`, `cargo test -p jarvis-hook`
 (the real hook against the real server), `npm test` in `island/` and at the repo root.

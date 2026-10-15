@@ -98,3 +98,93 @@ test("Hermes events drive the stage strip", () => {
   ({ run } = applyHermes(run, ev("done", { url: "javascript:alert(1)" })));
   assert.equal(run.url, "https://recipes.vercel.app", "only http(s) links are kept");
 });
+
+// ---------------------------------------------------------------------------
+// The robot's mood
+
+import { FLASH_MS, SLEEP_AFTER_MS, mascotMood } from "../src/model.ts";
+
+const mood = (o = {}) =>
+  mascotMood({ waiting: 0, sessions: [], hermes: null, flash: null, lastActivity: 1000, now: 1000, ...o });
+
+test("the robot shows the most urgent thing", () => {
+  const working = [{ id: "a", project: "p", state: "working", detail: "", updated: 0 }];
+  const busyHermes = { project: "p", stages: { plan: "done", frontend: "running" }, url: null, finished: false };
+  assert.equal(mood(), "idle");
+  assert.equal(mood({ sessions: working }), "working");
+  assert.equal(mood({ hermes: busyHermes }), "thinking");
+  assert.equal(mood({ sessions: working, hermes: busyHermes }), "thinking", "Hermes outranks a session");
+  const flash = { mood: "happy", until: 1000 + FLASH_MS };
+  assert.equal(mood({ flash, hermes: busyHermes }), "happy", "a reaction outranks work");
+  assert.equal(mood({ flash: { ...flash, until: 999 } }), "idle", "an ended reaction is ignored");
+  assert.equal(mood({ waiting: 1, flash, sessions: working }), "listening", "a waiting card outranks everything");
+  assert.equal(mood({ now: 1000 + SLEEP_AFTER_MS + 1 }), "sleeping");
+  assert.equal(mood({ now: 1000 + SLEEP_AFTER_MS + 1, sessions: working }), "working", "work keeps it awake");
+});
+
+// ---------------------------------------------------------------------------
+// Placement
+
+import { BALL, DOCKED, ORB, PANEL, PILL_W, SNAP, clampBall, layout, revalidate, settle as settlePlacement } from "../src/place.ts";
+
+const screen = { monitor: { x: 0, y: 0, w: 1920, h: 1080 }, work: { x: 0, y: 0, w: 1920, h: 1040 } };
+
+test("a ball dropped near the top edge docks, anywhere else it floats", () => {
+  assert.deepEqual(settlePlacement(900, 10, screen), DOCKED);
+  assert.deepEqual(settlePlacement(900, SNAP + BALL / 2, screen), DOCKED);
+  const p = settlePlacement(900, 400, screen);
+  assert.deepEqual(p, { docked: false, x: 900, y: 400 });
+  // Dropped off the bottom and right edges: pulled back so the whole ball is visible.
+  const q = settlePlacement(5000, 5000, screen);
+  assert.equal(q.docked, false);
+  assert.equal(q.x, 1920 - (ORB.w - ORB.cx));
+  assert.equal(q.y, 1040 - (ORB.h - ORB.cy));
+});
+
+test("a saved placement is made valid for today's screen", () => {
+  assert.deepEqual(revalidate(null, screen), DOCKED);
+  assert.deepEqual(revalidate({ docked: true, x: 1, y: 1 }, screen), DOCKED);
+  assert.deepEqual(revalidate({ docked: false, x: NaN, y: 3 }, screen), DOCKED);
+  const small = { monitor: { x: 0, y: 0, w: 800, h: 600 }, work: { x: 0, y: 0, w: 800, h: 560 } };
+  const p = revalidate({ docked: false, x: 1800, y: 900 }, small);
+  assert.ok(p.x <= 800 && p.y <= 560, "pulled back inside the smaller screen");
+});
+
+test("layout: docked hangs from the top centre, the ball opens its panel where there is room", () => {
+  const strip = layout("hidden", DOCKED, screen).win;
+  assert.equal(strip.y, 0);
+  assert.equal(strip.x, (1920 - strip.w) / 2);
+  assert.equal(layout("open", DOCKED, screen).win.w, PANEL.w);
+
+  const high = { docked: false, x: 960, y: 300 };
+  const down = layout("open", high, screen);
+  assert.equal(down.dir, "down");
+  assert.ok(down.win.x >= 0 && down.win.x + down.win.w <= 1920);
+  assert.equal(down.win.x + down.ball.x, 960, "the ball stays where it was");
+  assert.equal(down.win.y + down.ball.y, 300);
+
+  const low = layout("open", { docked: false, x: 960, y: 1000 }, screen);
+  assert.equal(low.dir, "up", "no room below: the panel opens above");
+  assert.ok(low.win.y >= 0 && low.win.y + low.win.h <= 1040);
+  assert.equal(low.win.y + low.ball.y, clampBall(960, 1000, screen).y);
+
+  const edge = layout("peek", { docked: false, x: 1900, y: 300 }, screen);
+  assert.equal(edge.side, "left", "no room on the right: the pill goes left of the ball");
+  assert.ok(edge.win.x >= 0 && edge.win.x + edge.win.w <= 1920);
+  assert.equal(layout("peek", { docked: false, x: 200, y: 300 }, screen).side, "right");
+  assert.equal(layout("peek", { docked: false, x: 200, y: 300 }, screen).win.w, ORB.w + PILL_W);
+});
+
+// ---------------------------------------------------------------------------
+// Sounds stay off unless asked for
+
+test("sounds are defined for every event and nothing plays at import", async () => {
+  globalThis.AudioContext = class {
+    constructor() { globalThis.__audio = true; }
+  };
+  const { play } = await import("../src/sound.ts");
+  assert.equal(globalThis.__audio, undefined, "importing the module creates no audio context");
+  play("ask"); // an unusable context must never throw
+  play("done");
+  play("deny");
+});

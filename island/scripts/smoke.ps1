@@ -71,9 +71,16 @@ if ($out -ne "") { throw "app closed, but the hook printed: $out" }
 if ($sw.ElapsedMilliseconds -gt 1500) { throw "app closed, but the hook took $($sw.ElapsedMilliseconds) ms" }
 Write-Host "ok: no app -> no opinion in $($sw.ElapsedMilliseconds) ms"
 
-# 2. Start the app and wait for its token.
-$proc = Start-Process -FilePath $app -PassThru
-try {
+# 2. Start the app (docked, then as the floating ball) and talk to it through the hook.
+function Test-App([string]$label, [string]$prefs) {
+  # A token left by the previous run would make the wait below pass at once.
+  Remove-Item (Join-Path $env:JARVIS_ISLAND_DIR "token") -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force $env:JARVIS_ISLAND_DIR | Out-Null
+  $prefsFile = Join-Path $env:JARVIS_ISLAND_DIR "prefs.json"
+  if ($prefs) { Set-Content -Path $prefsFile -Value $prefs } else { Remove-Item $prefsFile -ErrorAction SilentlyContinue }
+  Write-Host "--- $label"
+  $proc = Start-Process -FilePath $app -PassThru
+  try {
   $token = Join-Path $env:JARVIS_ISLAND_DIR "token"
   $deadline = (Get-Date).AddSeconds(45)
   while (-not (Test-Path $token)) {
@@ -82,7 +89,7 @@ try {
     Start-Sleep -Milliseconds 200
   }
   Start-Sleep -Seconds 3   # let the webview finish loading and subscribe to events
-  Save-Screen (Join-Path $ShotDir "1-idle.png")
+  Save-Screen (Join-Path $ShotDir "$label-1-idle.png")
 
   # A fire-and-forget event first: it must not wait.
   $sw = [System.Diagnostics.Stopwatch]::StartNew()
@@ -94,19 +101,23 @@ try {
   # The permission request: the self-test page answers "allow" after 1.5 s.
   $p = Start-Hook "PermissionRequest" $permission
   Start-Sleep -Milliseconds 900
-  Save-Screen (Join-Path $ShotDir "2-permission-card.png")
+  Save-Screen (Join-Path $ShotDir "$label-2-permission-card.png")
   $out = Finish-Hook $p 20000
   Write-Host "hook output: $out"
   $reply = $out | ConvertFrom-Json
   if ($reply.hookSpecificOutput.hookEventName -ne "PermissionRequest") { throw "unexpected output: $out" }
   if ($reply.hookSpecificOutput.decision.behavior -ne "allow") { throw "expected allow, got: $out" }
-  Write-Host "ok: island answered allow"
+  Write-Host "ok: island ($label) answered allow"
   Start-Sleep -Milliseconds 800
-  Save-Screen (Join-Path $ShotDir "3-after.png")
+  Save-Screen (Join-Path $ShotDir "$label-3-after.png")
 }
 finally {
   if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
 }
+}
+
+Test-App "docked" ""
+Test-App "floating" '{"placement":{"docked":false,"x":900,"y":300}}'
 
 # 3. App gone, stale token left behind: still no wait.
 Start-Sleep -Milliseconds 500

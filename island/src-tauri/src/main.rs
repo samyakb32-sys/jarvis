@@ -11,6 +11,7 @@
 
 mod hooks;
 mod island;
+mod prefs;
 
 use std::sync::Arc;
 
@@ -51,14 +52,30 @@ fn card_decide(state: State<'_, AppState>, id: String, reply: Reply) -> bool {
 }
 
 #[tauri::command]
-async fn set_mode(app: AppHandle, state: State<'_, AppState>, mode: String) -> Result<(), String> {
+async fn set_geometry(app: AppHandle, state: State<'_, AppState>, rect: island::Rect, poll: bool) -> Result<(), String> {
     let win = app.get_webview_window(WINDOW).ok_or("no island window")?;
-    island::set_mode(&win, &state.poll, &mode).map_err(|e| e.to_string())
+    island::set_geometry(&win, &state.poll, rect, poll).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn set_hit_rect(state: State<'_, AppState>, rect: Option<island::Rect>) {
-    state.poll.set_rect(rect);
+fn set_hit_rects(state: State<'_, AppState>, rects: Vec<island::Rect>) {
+    state.poll.set_rects(rects);
+}
+
+#[tauri::command]
+async fn screen_info(app: AppHandle) -> Result<Option<island::ScreenInfo>, String> {
+    let win = app.get_webview_window(WINDOW).ok_or("no island window")?;
+    island::screen_info(&win).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn prefs_get() -> serde_json::Value {
+    prefs::get()
+}
+
+#[tauri::command]
+fn prefs_set(prefs: serde_json::Value) -> Result<(), String> {
+    prefs::set(&prefs)
 }
 
 /// Let the island take the keyboard (a text field was clicked), or give it back.
@@ -114,9 +131,10 @@ fn main() {
                 }
             });
 
-            let hooks_item = MenuItem::with_id(app, "hooks", "Claude Code hooks…", true, None::<&str>)?;
+            let hooks_item = MenuItem::with_id(app, "hooks", "Settings…", true, None::<&str>)?;
+            let dock_item = MenuItem::with_id(app, "dock", "Put the island back at the top", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit Jarvis Island", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&hooks_item, &quit_item])?;
+            let menu = Menu::with_items(app, &[&hooks_item, &dock_item, &quit_item])?;
             let mut tray = TrayIconBuilder::with_id("main").tooltip("Jarvis Island").menu(&menu);
             if let Some(icon) = app.default_window_icon() {
                 tray = tray.icon(icon.clone());
@@ -124,6 +142,9 @@ fn main() {
             tray.on_menu_event(|app, event| match event.id().as_ref() {
                 "hooks" => {
                     let _ = app.emit_to(WINDOW, "open-settings", ());
+                }
+                "dock" => {
+                    let _ = app.emit_to(WINDOW, "dock", ());
                 }
                 "quit" => app.exit(0),
                 _ => {}
@@ -134,8 +155,11 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             card_ack,
             card_decide,
-            set_mode,
-            set_hit_rect,
+            set_geometry,
+            set_hit_rects,
+            screen_info,
+            prefs_get,
+            prefs_set,
             set_keyboard,
             selftest,
             quit,

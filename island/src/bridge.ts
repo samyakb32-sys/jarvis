@@ -28,6 +28,17 @@ export interface Rect {
   h: number;
 }
 
+export interface Prefs {
+  placement?: { docked: boolean; x: number; y: number };
+  sound?: boolean;
+  animation?: "lite" | "live" | "still";
+}
+
+export interface ScreenInfo {
+  monitor: Rect;
+  work: Rect;
+}
+
 export interface HookStatus {
   installed: boolean;
   settingsPath: string;
@@ -59,8 +70,13 @@ async function callOrThrow<T>(cmd: string, args?: Record<string, unknown>): Prom
 export const Bridge = {
   ack: (id: string) => call<boolean>("card_ack", { id }),
   decide: (id: string, reply: Reply) => call<boolean>("card_decide", { id, reply }),
-  setMode: (mode: "strip" | "panel") => call<void>("set_mode", { mode }),
-  setHitRect: (rect: Rect | null) => call<void>("set_hit_rect", { rect }),
+  /** Move and size the window (logical px on the screen); `poll` watches the pointer for click-through. */
+  setGeometry: (rect: Rect, poll: boolean) => call<void>("set_geometry", { rect, poll }),
+  /** The parts of the window that take clicks; everywhere else they pass through. */
+  setHitRects: (rects: Rect[]) => call<void>("set_hit_rects", { rects }),
+  screenInfo: () => call<ScreenInfo>("screen_info"),
+  prefsGet: () => call<Prefs>("prefs_get"),
+  prefsSet: (prefs: Prefs) => call<void>("prefs_set", { prefs }),
   setKeyboard: (take: boolean) => call<void>("set_keyboard", { take }),
   selftest: () => call<string | null>("selftest"),
   quit: () => call<void>("quit"),
