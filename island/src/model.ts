@@ -243,3 +243,33 @@ export function applyHermes(run: HermesRun | null, card: Card): { run: HermesRun
 export function hermesBusy(run: HermesRun | null): boolean {
   return !!run && !run.finished && Object.values(run.stages).some((s) => s === "running");
 }
+
+// ---------------------------------------------------------------------------
+// The robot's mood
+
+export type RobotMood = "idle" | "thinking" | "listening" | "working" | "happy" | "error" | "sleeping";
+
+/** How long a happy / error reaction shows before the robot goes back to what it was doing. */
+export const FLASH_MS = 3000;
+/** No activity for this long and the robot falls asleep. */
+export const SLEEP_AFTER_MS = 10 * 60 * 1000;
+
+export interface MoodInput {
+  waiting: number;
+  sessions: Iterable<Session>;
+  hermes: HermesRun | null;
+  /** A short reaction (approved / finished, or denied / failed) and when it ends. */
+  flash: { mood: "happy" | "error"; until: number } | null;
+  lastActivity: number;
+  now: number;
+}
+
+/** What the robot shows, most urgent first. */
+export function mascotMood(i: MoodInput): RobotMood {
+  if (i.waiting > 0) return "listening";
+  if (i.flash && i.flash.until > i.now) return i.flash.mood;
+  if (hermesBusy(i.hermes)) return "thinking";
+  for (const s of i.sessions) if (s.state === "working") return "working";
+  if (i.now - i.lastActivity > SLEEP_AFTER_MS) return "sleeping";
+  return "idle";
+}
