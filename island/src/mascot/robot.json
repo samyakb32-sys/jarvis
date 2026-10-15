@@ -1,0 +1,21 @@
+{
+  "box": 48,
+  "dpr": 2,
+  "fps": 12,
+  "frames": 48,
+  "cssWidth": 50,
+  "cssHeight": 71,
+  "padSide": 1,
+  "padTop": 16,
+  "width": 100,
+  "height": 142,
+  "states": [
+    "idle",
+    "thinking",
+    "listening",
+    "working",
+    "happy",
+    "error",
+    "sleeping"
+  ]
+}

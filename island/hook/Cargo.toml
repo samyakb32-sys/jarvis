@@ -1,0 +1,14 @@
+[package]
+name = "jarvis-hook"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Relay Claude Code runs on each hook event; forwards it to Jarvis Island"
+
+[dependencies]
+jarvis-island-protocol = { path = "../protocol" }
+serde_json = "1"
+
+[dev-dependencies]
+jarvis-island-protocol = { path = "../protocol", features = ["server"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

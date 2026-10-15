@@ -57,6 +57,13 @@ npm run hermes -- "a portfolio site for my photography, dark theme, gallery + co
 Hermes will run the backend stage, stop and ask for your go-ahead, run the frontend
 stage, stop again, then run deploy + the bug-fix loop and hand you the live URL.
 
+## Jarvis Island (Windows)
+
+An optional island at the top of the screen. It shows Hermes's stages and lets you
+approve the plan, and every Claude Code permission request, with one click and
+without switching to the terminal. Install and usage: **[docs/ISLAND.md](docs/ISLAND.md)**.
+The source is in `island/`.
+
 ## What's a real API integration vs. browser automation
 
 | Service | Mechanism |

@@ -1,0 +1,78 @@
+{
+  "evidence_id": "ev_b06bf11365378bc2984ea48ad40224e269a3d6ffd267f174033601621bc88fe2",
+  "scripts": [
+    {
+      "url": "http://127.0.0.1:8765/js/site.js",
+      "cdp_hash": "ed1f099ca8c92b7e12c9d1be5251baae2db36a51bed64b64fefa12ca5eaedce4",
+      "length": 11837,
+      "is_module": false,
+      "source_map_url": null
+    },
+    {
+      "url": "http://127.0.0.1:8765/",
+      "cdp_hash": "a8e845b2ad10315d9112a3709398461f96d913d4a45fa82deb27b229d60fbfe5",
+      "length": 44,
+      "is_module": false,
+      "source_map_url": null
+    }
+  ],
+  "resources": [
+    {
+      "url": "http://127.0.0.1:8765/css/site.css",
+      "type": "Stylesheet",
+      "content_size": 28019
+    },
+    {
+      "url": "http://127.0.0.1:8765/fonts/GeistMono-Variable.woff2",
+      "type": "Font",
+      "content_size": 71368
+    },
+    {
+      "url": "http://127.0.0.1:8765/fonts/poppins-latin-600-normal.woff2",
+      "type": "Font",
+      "content_size": 8000
+    },
+    {
+      "url": "http://127.0.0.1:8765/js/site.js",
+      "type": "Script",
+      "content_size": 11965
+    },
+    {
+      "url": "http://127.0.0.1:8765/fonts/poppins-latin-500-normal.woff2",
+      "type": "Font",
+      "content_size": 7748
+    },
+    {
+      "url": "http://127.0.0.1:8765/fonts/Geist-Variable.woff2",
+      "type": "Font",
+      "content_size": 69652
+    }
+  ],
+  "network": {
+    "requests": [],
+    "websocket_connections": [],
+    "coverage_started_at": "2026-10-13T17:43:03.308Z",
+    "prior_activity_available": false
+  },
+  "storage": {
+    "origin": "http://127.0.0.1:8765",
+    "usage_bytes": 0,
+    "quota_bytes": 162331904409,
+    "local_storage_keys": [],
+    "session_storage_keys": [],
+    "indexed_db_names": [],
+    "cache_names": [],
+    "content_fingerprints": [],
+    "fingerprint_algorithm": "sha256",
+    "fingerprints_complete": false,
+    "values_redacted": true
+  },
+  "workers": [],
+  "limitations": [
+    "Observation starts when REA attaches; prior network and console activity is unavailable.",
+    "Raw network headers, bodies, cookies, storage values, console objects, and WebSocket payloads are never retained; explicitly requested primitive console text is retained verbatim, while payload captures retain value-free shapes.",
+    "Source maps are reported only as declarative URLs and are not fetched.",
+    "URL-less scripts and console events without an allowed source URL are excluded because their origin cannot be proven.",
+    "CDP discovery omitted the target attachment state; attached is reported as unknown."
+  ]
+}
